@@ -58,6 +58,21 @@ export default class YTranscriptPlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: "transcript-from-clipboard",
+			name: "Get YouTube transcript from clipboard url",
+			callback: async () => {
+				if (!navigator.clipboard) {
+					// Clipboard API not available
+					return;
+				}
+				const url = await navigator.clipboard.readText();
+				if (url) {
+					this.openView(url);
+				}
+			},
+		});
+
 		this.addSettingTab(new YTranslateSettingTab(this.app, this));
 	}
 
