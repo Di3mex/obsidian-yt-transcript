@@ -9,6 +9,7 @@ import {
 import { TranscriptView, TRANSCRIPT_TYPE_VIEW } from "src/transcript-view";
 import { PromptModal } from "src/prompt-modal";
 import { EditorExtensions } from "../editor-extensions";
+import { YoutubeTranscript } from 'src/fetch-transcript';
 
 interface YTranscriptSettings {
 	timestampMod: number;
@@ -62,13 +63,53 @@ export default class YTranscriptPlugin extends Plugin {
 			id: "transcript-from-clipboard",
 			name: "Get YouTube transcript from clipboard url",
 			callback: async () => {
-				if (!navigator.clipboard) {
-					// Clipboard API not available
-					return;
-				}
 				const url = await navigator.clipboard.readText();
 				if (url) {
 					this.openView(url);
+				}
+			},
+		});
+
+		this.addCommand({
+			id: "paste-transcript",
+			name: "Paste YouTube transcript",
+			editorCallback: async (editor: Editor, _: MarkdownView) => {
+				const url = await navigator.clipboard.readText();
+				if (url) {
+					const config = { lang: "en", country: "US" }; // Optional
+					YoutubeTranscript.fetchTranscript(url, config)
+					.then(transcript => {
+						if (transcript) {
+							let block: string [] = [];
+							let blockDuration = 0;
+					
+							transcript.lines.forEach((line: any) => {
+								let durationInSeconds = line.duration / 1000;
+								let offsetInSeconds = line.offset / 1000;
+								blockDuration += durationInSeconds;
+							
+								if (blockDuration >= 10 || block.length === 0) {
+									let timestamp = new Date(offsetInSeconds * 1000).toISOString().substring(11, 19);
+									let [hours, minutes, seconds] = timestamp.split(':').map(Number);
+									let totalMinutes = (hours * 60 + minutes);
+									let totalSeconds = seconds.toString().padStart(2, '0');
+									timestamp = `${totalMinutes}:${totalSeconds}`;
+									block.push(`[${timestamp}]\n`);
+									blockDuration = 0;
+								}
+							
+								block.push(`${line.text}\n`);
+							});
+							
+							// Print remaining lines if any
+							if (block.length > 0) {
+								editor.replaceSelection(block.join(''));
+							}
+						}
+					})
+					.catch(err => {
+						console.error(err);
+					});
 				}
 			},
 		});
